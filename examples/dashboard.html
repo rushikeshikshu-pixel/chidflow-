@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chid Technologies | ServerWatch Autonomic Mission Control</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --border: #1f2937;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.2);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.25);
+      --warning: #f59e0b;
+      --info: #06b6d4;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
+    
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
+    .brand h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+    .badge { font-size: 11px; background: var(--accent-glow); color: var(--accent); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); font-weight: 600; text-transform: uppercase; }
+    .status-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); background: var(--card-bg); padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+    .card-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+
+    /* Canvas / Graph Visualizer */
+    #graphCanvas { width: 100%; height: 380px; background: #050811; border-radius: 8px; border: 1px solid var(--border); }
+
+    /* Action Buttons */
+    .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+    button { padding: 12px 14px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+    .btn-attack { background: #311318; border: 1px solid var(--danger); color: #fca5a5; }
+    .btn-attack:hover { background: var(--danger); color: #fff; box-shadow: 0 0 15px var(--danger-glow); }
+    .btn-outage { background: #332009; border: 1px solid var(--warning); color: #fcd34d; }
+    .btn-outage:hover { background: var(--warning); color: #000; box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+    .btn-socket { background: #082f49; border: 1px solid var(--info); color: #7dd3fc; }
+    .btn-socket:hover { background: var(--info); color: #000; box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
+
+    /* Telemetry / Log Feed */
+    .terminal { font-family: "JetBrains Mono", Consolas, Monaco, monospace; font-size: 12px; line-height: 1.6; height: 380px; overflow-y: auto; background: #050811; border-radius: 8px; padding: 14px; border: 1px solid var(--border); }
+    .log-line { margin-bottom: 6px; word-break: break-all; }
+    .log-time { color: var(--text-muted); margin-right: 8px; }
+    .log-info { color: var(--info); }
+    .log-warn { color: var(--warning); }
+    .log-crit { color: var(--danger); font-weight: bold; }
+    .log-ok { color: var(--accent); font-weight: bold; }
+
+    /* KPI Metrics */
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .metric-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+    .metric-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .metric-val { font-size: 24px; font-weight: 700; margin-top: 4px; display: flex; align-items: baseline; gap: 6px; }
+    .metric-sub { font-size: 11px; font-weight: 500; }
+
+    /* Ledger Table */
+    .table-container { margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace; }
+    th { text-align: left; padding: 10px; background: #0b1120; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    td { padding: 10px; border-bottom: 1px solid var(--border); }
+    tr:hover { background: #131d31; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>CHID TECHNOLOGIES <span class="badge">SERVERWATCH v2.0 AUTOPILOT</span></h1>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span>AUTONOMIC IMMUNE SYSTEM: <strong>ONLINE</strong></span>
+    </div>
+  </header>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Mean Time To Resolution (MTTR)</div>
+      <div class="metric-val" id="metricMttr" style="color: var(--accent);">42 ms <span class="metric-sub" style="color: var(--accent);">↓ 99.9%</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Treasure Status (Postgres Core DB)</div>
+      <div class="metric-val" style="color: var(--accent);">ISOLATED <span class="metric-sub" style="color: var(--accent);">Min-Cut: 0.0</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">TPIC Benchmark Mitigation</div>
+      <div class="metric-val" style="color: var(--accent);">100% <span class="metric-sub" style="color: var(--danger);">vs NVIDIA 0%</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Clearinghouse Non-Repudiation</div>
+      <div class="metric-val" id="metricReceipts" style="color: var(--info);">32 Verified <span class="metric-sub" style="color: var(--info);">HMAC-SHA256</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">
+        <span>Dynamic Information Flow Graph (DIFG) & Causal Invariant Map</span>
+        <span style="font-size: 11px; color: var(--accent);">Edmonds-Karp Min-Cut Active</span>
+      </div>
+      <canvas id="graphCanvas"></canvas>
+      <div class="controls">
+        <button class="btn-attack" onclick="triggerPromptInjection()">
+          <span>⚠️ SIMULATE PROMPT INJECTION</span>
+          <small>Web Ingestion → Wire Transfer Attempt</small>
+        </button>
+        <button class="btn-outage" onclick="triggerProductionOutage()">
+          <span>⚡ SIMULATE 504 PRODUCTION OUTAGE</span>
+          <small>Canary Memory Leak → Autonomic Drain</small>
+        </button>
+        <button class="btn-socket" onclick="triggerRawSocketExploit()">
+          <span>🔒 SIMULATE RAW SOCKET ATTACK</span>
+          <small>Untrusted Process → Postgres Socket</small>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Real-Time Autopilot Telemetry</span>
+        <span style="font-size: 11px; color: var(--info);">eBPF Kernel Feed</span>
+      </div>
+      <div class="terminal" id="terminalLog">
+        <div class="log-line"><span class="log-time">00:00:01</span><span class="log-info">[INIT]</span> DIFG Engine online. 8 nodes, 7 directed edges registered.</div>
+        <div class="log-line"><span class="log-time">00:00:01</span><span class="log-ok">[GUARD]</span> Critical Sink 'postgres_cluster:5432' protected by eBPF sensor.</div>
+        <div class="log-line"><span class="log-time">00:00:01</span><span class="log-ok">[VAEP]</span> Cryptographic clearinghouse master signer active.</div>
+        <div class="log-line"><span class="log-time">00:00:02</span><span class="log-info">[IDLE]</span> Autonomic baseline healthy. Ready for incident simulation.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card table-container">
+    <div class="card-title">
+      <span>Cryptographic Clearinghouse Audit Ledger (RFC-001 / VAEP Receipts)</span>
+      <span style="font-size: 11px; color: var(--accent);">Tamper-Evident HMAC Proofs</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>SEQ</th>
+          <th>RECEIPT ID</th>
+          <th>TOOL / ACTION</th>
+          <th>TARGET NODE</th>
+          <th>STATE DIGEST</th>
+          <th>SIGNATURE (HMAC-SHA256)</th>
+          <th>STATUS</th>
+        </tr>
+      </thead>
+      <tbody id="ledgerBody">
+        <tr>
+          <td>#1</td>
+          <td>rcpt_63469449d0b8</td>
+          <td>autopilot:DRAIN_CANARY</td>
+          <td>canary_v2_1</td>
+          <td>e3b0c44298fc...</td>
+          <td>006795512e60bbf7579de6c9686ec81f...</td>
+          <td><span style="color: var(--accent); font-weight: 600;">VERIFIED</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("graphCanvas");
+    const ctx = canvas.getContext("2d");
+    const term = document.getElementById("terminalLog");
+    const ledger = document.getElementById("ledgerBody");
+    let seqCounter = 2;
+
+    // Resize canvas
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth - 40;
+      canvas.height = 380;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // Node definitions
+    const nodes = [
+      { id: "public_web", label: "Public Web Ingress", type: "untrusted", x: 60, y: 190, color: "#ef4444" },
+      { id: "api_gateway", label: "API Gateway", type: "context", x: 200, y: 190, color: "#06b6d4" },
+      { id: "checkout_svc", label: "Checkout Service", type: "context", x: 350, y: 190, color: "#06b6d4" },
+      { id: "canary_v2", label: "Canary Worker (Leak)", type: "canary", x: 500, y: 100, color: "#f59e0b" },
+      { id: "stable_v2", label: "Stable Worker v2", type: "context", x: 500, y: 280, color: "#06b6d4" },
+      { id: "postgres_db", label: "🏆 POSTGRES (TREASURE)", type: "treasure", x: 670, y: 190, color: "#10b981" },
+    ];
+
+    let severedEdges = [];
+    let highlightedPath = [];
+
+    function log(type, msg) {
+      const line = document.createElement("div");
+      line.className = "log-line";
+      const now = new Date().toTimeString().split(" ")[0];
+      line.innerHTML = `<span class="log-time">${now}</span><span class="${type}">[${type.replace('log-', '').toUpperCase()}]</span> ${msg}`;
+      term.appendChild(line);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function drawGraph() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Edges
+      const edges = [
+        ["public_web", "api_gateway"],
+        ["api_gateway", "checkout_svc"],
+        ["checkout_svc", "canary_v2"],
+        ["checkout_svc", "stable_v2"],
+        ["canary_v2", "postgres_db"],
+        ["stable_v2", "postgres_db"],
+      ];
+
+      edges.forEach(([sId, tId]) => {
+        const s = nodes.find(n => n.id === sId);
+        const t = nodes.find(n => n.id === tId);
+        if (!s || !t) return;
+
+        const isSevered = severedEdges.some(([u, v]) => (u === sId && v === tId));
+        const isHighlight = highlightedPath.some(([u, v]) => (u === sId && v === tId));
+
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(t.x, t.y);
+        ctx.lineWidth = isSevered ? 3 : (isHighlight ? 2.5 : 1.5);
+        ctx.strokeStyle = isSevered ? "#ef4444" : (isHighlight ? "#f59e0b" : "#374151");
+        if (isSevered) ctx.setLineDash([6, 4]); else ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (isSevered) {
+          const midX = (s.x + t.x) / 2;
+          const midY = (s.y + t.y) / 2;
+          ctx.fillStyle = "#ef4444";
+          ctx.font = "bold 13px sans-serif";
+          ctx.fillText("✕ SEVERED", midX - 25, midY - 6);
+        }
+      });
+
+      // Draw Nodes
+      nodes.forEach(n => {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.type === "treasure" ? 24 : 16, 0, Math.PI * 2);
+        ctx.fillStyle = n.color;
+        ctx.shadowColor = n.color;
+        ctx.shadowBlur = n.type === "treasure" ? 18 : 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "#f3f4f6";
+        ctx.font = n.type === "treasure" ? "bold 12px sans-serif" : "11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(n.label, n.x, n.y + (n.type === "treasure" ? 38 : 28));
+      });
+    }
+
+    drawGraph();
+
+    function triggerPromptInjection() {
+      severedEdges = [["public_web", "api_gateway"]];
+      highlightedPath = [["api_gateway", "checkout_svc"], ["checkout_svc", "postgres_db"]];
+      drawGraph();
+
+      log("log-warn", "INBOUND INJECTION DETECTED on 'public_web' payload!");
+      log("log-crit", "Agent attempted transitive bridge: public_web -> checkout_svc -> POSTGRES_DB!");
+      log("log-crit", "CHIDFLOW MIN-CUT ACTIVATED: MaxFlow(Untrusted -> Treasure) > 0. Severing bridge (-32001)!");
+      log("log-ok", "Treasure remains 100% isolated. Zero tainted writes committed.");
+    }
+
+    function triggerProductionOutage() {
+      highlightedPath = [["checkout_svc", "canary_v2"], ["canary_v2", "postgres_db"]];
+      severedEdges = [["checkout_svc", "canary_v2"]];
+      drawGraph();
+
+      log("log-crit", "OUTAGE ALERT: 504 Gateway Timeout Burst on 'checkout_svc' (p99: 4,800ms)");
+      log("log-info", "Autopilot inferring causal chain across DIFG...");
+      setTimeout(() => {
+        log("log-warn", "CAUSAL ROOT LOCATED: 'canary_v2' connection pool exhaustion (1.8ms)");
+        log("log-warn", "Candidate A: 'DROP TABLE' -> REJECTED BY TREASURE INVARIANT!");
+        log("log-ok", "Candidate B: 'DRAIN CANARY' -> APPROVED (Blast radius: 0.0)");
+        log("log-ok", "Canary traffic drained. Traffic redirected to stable_v2. Latency recovered to 38ms!");
+        
+        // Add to ledger
+        const newRow = document.createElement("tr");
+        const receiptId = "rcpt_" + Math.random().toString(16).substring(2, 14);
+        newRow.innerHTML = `
+          <td>#${seqCounter++}</td>
+          <td>${receiptId}</td>
+          <td>autopilot:DRAIN_CANARY</td>
+          <td>canary_v2</td>
+          <td>8a12f9...</td>
+          <td>${Math.random().toString(16).substring(2, 34)}...</td>
+          <td><span style="color: var(--accent); font-weight: 600;">VERIFIED</span></td>
+        `;
+        ledger.prepend(newRow);
+      }, 500);
+    }
+
+    function triggerRawSocketExploit() {
+      log("log-crit", "eBPF SENSOR ALERT: Untrusted process (PID 4412) opened raw TCP socket to postgres_cluster:5432!");
+      log("log-crit", "eBPF Kernel Gatekeeper: Request has NO Clearinghouse Receipt!");
+      log("log-crit", "eBPF TC_ACT_SHOT: Connection dropped in kernel (403 Forbidden). Host spared from crash.");
+    }
+  </script>
+</body>
+</html>

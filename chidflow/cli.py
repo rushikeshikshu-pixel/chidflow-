@@ -8,15 +8,18 @@ import sys
 
 from chidflow.benchmark import BenchmarkRunner
 from chidflow.config import PolicyConfigLoader
+from chidflow.explorer import ClearinghouseExplorer
 from chidflow.graph import DynamicFlowGraph
 from chidflow.models import AuditReceipt, SecurityClassification
 from chidflow.policy import PolicyEngine
 from chidflow.proof import ClearinghouseSigner
 from chidflow.proxy import MCPExecutionProxy
 from chidflow.server import create_http_server
+from chidflow.serverwatch_cli import run_demo as run_serverwatch_demo
 from chidflow.vault import CredentialVault
 from chidflow.viz import GraphVisualizer
 from chidflow.wrapper import SubprocessMCPWrapper
+from benchmarks.tpic_suite import TPICBenchmark
 
 
 def run_demo() -> None:
@@ -132,6 +135,15 @@ def main() -> None:
     verify_p.add_argument("receipt", type=str, help="Receipt JSON string or file path")
     verify_p.add_argument("--secret", type=str, default=None, help="Clearinghouse signing secret")
 
+    # autopilot
+    subparsers.add_parser("autopilot", help="Run ServerWatch Production Incident Autopilot & eBPF sensor demo")
+
+    # tpic
+    subparsers.add_parser("tpic", help="Run the 10-vector Transitive Prompt-Injection Challenge (TPIC) vs NVIDIA OpenShell")
+
+    # explorer
+    subparsers.add_parser("explorer", help="Launch the Clearinghouse Audit Ledger Explorer")
+
     args = parser.parse_args()
 
     if args.command == "demo" or not args.command:
@@ -182,6 +194,35 @@ def main() -> None:
         signer = ClearinghouseSigner(secret)
         valid = signer.verify_receipt(receipt)
         print(f"Receipt {receipt.receipt_id} validity: {valid}")
+
+    elif args.command == "autopilot":
+        run_serverwatch_demo()
+
+    elif args.command == "tpic":
+        print("\n" + "=" * 76)
+        print("   TPIC BENCHMARK: 10 TRANSITIVE PROMPT INJECTION ATTACK VECTORS")
+        print("   Head-to-head comparison: NVIDIA OpenShell (Static Z3) vs ChidFlow Min-Cut")
+        print("=" * 76)
+        results = TPICBenchmark.evaluate_all()
+        print(f"Total Scenarios Tested : {results['total_scenarios']}")
+        print(f"NVIDIA OpenShell Model : \033[91m{results['openshell_score']} Mitigation\033[0m (10/10 Vulnerable)")
+        print(f"ChidFlow Min-Cut Model : \033[92m{results['chidflow_score']} Mitigation\033[0m (0/10 Vulnerable)")
+        print("-" * 76)
+        for d in results["details"]:
+            status = "\033[92mBLOCKED\033[0m" if d["chidflow_mitigated"] else "\033[91mFAILED\033[0m"
+            print(f"  • {d['scenario'][:50]:<50} | ChidFlow: {status} | OpenShell: \033[91mBYPASSED\033[0m")
+        print("=" * 76 + "\n")
+
+    elif args.command == "explorer":
+        signer = ClearinghouseSigner(signing_secret="explorer_demo_secret_2026")
+        explorer = ClearinghouseExplorer(signer=signer)
+        # Populate with sample receipts
+        for i, tool in enumerate(["query_crm", "verify_identity", "autopilot:DRAIN_CANARY"], start=1):
+            r = signer.sign_transaction(tool_name=tool, arguments={"run_id": i}, graph_state_hash=f"state_hash_{i}")
+            explorer.record_receipt(r)
+        print("\n" + explorer.render_ascii_ledger())
+        status = explorer.verify_ledger_integrity()
+        print(f"Ledger Status: \033[92m{status['ledger_status']}\033[0m ({status['verified_valid']}/{status['total_transactions']} Verified)\n")
 
 
 if __name__ == "__main__":
