@@ -1,0 +1,42 @@
+{
+  "nodes": [
+    {
+      "id": "untrusted_web",
+      "classification": "UNTRUSTED_SOURCE",
+      "description": "Public internet search & scraping tools"
+    },
+    {
+      "id": "agent_memory",
+      "classification": "AGENT_CONTEXT",
+      "description": "Working LLM context window"
+    },
+    {
+      "id": "customer_database",
+      "classification": "CONFIDENTIAL_ASSET",
+      "description": "Internal customer CRM & database"
+    },
+    {
+      "id": "stripe_payments",
+      "classification": "CRITICAL_SINK",
+      "description": "Payment gateway & financial execution rails"
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_google",
+      "reads_from": ["untrusted_web"]
+    },
+    {
+      "name": "lookup_customer",
+      "reads_from": ["customer_database"]
+    },
+    {
+      "name": "charge_customer",
+      "writes_to": ["stripe_payments"]
+    }
+  ],
+  "credentials": {
+    "STRIPE_API_KEY": "$ENV:STRIPE_API_KEY"
+  },
+  "signing_secret": "prod-clearinghouse-secret-key-32bytes"
+}

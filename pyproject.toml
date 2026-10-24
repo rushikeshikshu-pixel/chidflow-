@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chidflow"
+version = "0.1.0"
+description = "Runtime Graph Execution Proxy & Clearinghouse for Autonomous AI Agents"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "ChidFlow Team" }
+]
+keywords = ["mcp", "security", "ai-agents", "graph-theory", "min-cut", "execution-proxy", "clearinghouse"]
+dependencies = []
+
+[project.scripts]
+chidflow = "chidflow.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chidflow*"]

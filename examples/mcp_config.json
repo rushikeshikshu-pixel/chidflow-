@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "chidflow-proxy": {
+      "command": "python",
+      "args": [
+        "-m",
+        "chidflow.cli",
+        "proxy"
+      ],
+      "env": {
+        "CHIDFLOW_LOG_LEVEL": "INFO",
+        "CHIDFLOW_SIGNING_SECRET": "your-clearinghouse-production-secret"
+      }
+    }
+  }
+}
