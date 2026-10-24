@@ -21,7 +21,14 @@ from chidflow.serverwatch_cli import run_demo as run_serverwatch_demo
 from chidflow.vault import CredentialVault
 from chidflow.viz import GraphVisualizer
 from chidflow.wrapper import SubprocessMCPWrapper
-from benchmarks.tpic_suite import TPICBenchmark
+try:
+    from benchmarks.tpic_suite import TPICBenchmark
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        from benchmarks.tpic_suite import TPICBenchmark
+    except ModuleNotFoundError:
+        TPICBenchmark = None
 
 
 def run_demo() -> None:

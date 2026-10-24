@@ -16,6 +16,8 @@ dependencies = []
 
 [project.scripts]
 chidflow = "chidflow.cli:main"
+chid = "chidflow.cli:main"
+serverwatch = "chidflow.serverwatch_cli:run_demo"
 
 [tool.setuptools.packages.find]
 where = ["."]

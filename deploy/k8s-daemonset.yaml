@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: serverwatch-ebpf-sensor
+  namespace: kube-system
+  labels:
+    app: serverwatch-sensor
+    component: invariant-runtime
+spec:
+  selector:
+    matchLabels:
+      app: serverwatch-sensor
+  template:
+    metadata:
+      labels:
+        app: serverwatch-sensor
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: ebpf-sensor
+        image: ghcr.io/chidtechnologies/serverwatch-sensor:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+              - BPF
+              - NET_ADMIN
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: PROTECTED_RESOURCES
+            value: "postgres-cluster:5432,core-db:5432,stripe-gateway:443"
+          - name: CLEARINGHOUSE_PUBLIC_KEY
+            valueFrom:
+              secretKeyRef:
+                name: serverwatch-clearinghouse-keys
+                key: public-key
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 20m
+            memory: 64Mi
+        volumeMounts:
+          - name: sys-fs-bpf
+            mountPath: /sys/fs/bpf
+            mountPropagation: Bidirectional
+          - name: host-run
+            mountPath: /var/run/serverwatch
+      volumes:
+        - name: sys-fs-bpf
+          hostPath:
+            path: /sys/fs/bpf
+        - name: host-run
+          hostPath:
+            path: /var/run/serverwatch
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: serverwatch-policy-config
+  namespace: kube-system
+data:
+  policy.json: |
+    {
+      "version": "1.0",
+      "cluster_invariants": {
+        "protect_the_treasure": true,
+        "critical_sinks": [
+          "postgres-cluster",
+          "production-db",
+          "stripe-settlement-rail"
+        ],
+        "max_flow_clearance_threshold": 0.0,
+        "auto_remediation_modes": [
+          "DRAIN_CANARY",
+          "ROLLBACK_DEPLOYMENT",
+          "RESTART_WORKER_POOL"
+        ],
+        "strictly_forbidden_actions": [
+          "DROP_DATABASE_TABLE",
+          "SEVER_CRITICAL_SINK"
+        ]
+      }
+    }
