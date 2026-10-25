@@ -7,6 +7,7 @@ import os
 import sys
 
 from chidflow.benchmark import BenchmarkRunner
+from chidflow.clearinghouse_service import start_clearinghouse_server
 from chidflow.config import PolicyConfigLoader
 from chidflow.cybersec import EndToEndSecurityMesh
 from chidflow.edge_daemon import DeviceType, EdgeDeviceDaemon, EdgeTaskRequest
@@ -163,6 +164,11 @@ def main() -> None:
 
     # swarm
     subparsers.add_parser("swarm", help="Run Unified Autonomic Swarm Substrate demo (Swarm Routing + Min-Cut Invariant)")
+
+    # serve-clearing
+    clearing_p = subparsers.add_parser("serve-clearing", help="Run HTTP Clearinghouse Verification Gateway for upstream APIs & Banks")
+    clearing_p.add_argument("--port", type=int, default=8443, help="Clearinghouse HTTP port (default: 8443)")
+    clearing_p.add_argument("--secret", type=str, default=None, help="Clearinghouse signing secret")
 
     args = parser.parse_args()
 
@@ -425,6 +431,26 @@ def main() -> None:
             print(f"    * Signature    : {good_verdict.receipt.swarm_signature[:32]}... (HMAC-SHA256)")
             print(f"    * Settlement   : \033[92mAPPROVED FOR UPSTREAM FINANCIAL CLEARING\033[0m")
         print("=" * 78 + "\n")
+
+    elif args.command == "serve-clearing":
+        secret = args.secret or os.environ.get("CHIDFLOW_SIGNING_SECRET", "clearinghouse_master_production_secret_2026")
+        signer = ClearinghouseSigner(signing_secret=secret)
+        server = start_clearinghouse_server(port=args.port, signer=signer)
+        print("=" * 76)
+        print("  ChidFlow: Public Clearinghouse Verification Gateway (RFC-001 VAEP)")
+        print(f"  Listening on http://0.0.0.0:{args.port}")
+        print(f"  Root Key ID: {signer.public_key_id}")
+        print("  Endpoints:")
+        print("    POST /v1/clearing/verify        - Single receipt cryptographic settlement check")
+        print("    POST /v1/clearing/batch_verify  - High-throughput batch settlement check")
+        print("    GET  /v1/clearing/roots         - Upstream root public keys for bank verification")
+        print("    GET  /v1/clearing/status        - Service health & uptime status")
+        print("=" * 76)
+        print("Press Ctrl+C to terminate.")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            server.server_close()
 
 
 if __name__ == "__main__":
