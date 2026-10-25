@@ -16,7 +16,7 @@ class TestTPICAndBridges(unittest.TestCase):
         self.assertIn("0%", results["openshell_score"])
         # ChidFlow dynamic min-cut should score 100%
         self.assertIn("100%", results["chidflow_score"])
-        self.assertEqual(results["total_scenarios"], 5)
+        self.assertEqual(results["total_scenarios"], 10)
 
     def test_nvidia_openshell_supervisor_bridge(self):
         graph = DynamicFlowGraph()
