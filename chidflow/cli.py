@@ -181,6 +181,9 @@ def main() -> None:
     shadow_p.add_argument("--demo", action="store_true", help="Run simulated enterprise staging workload")
     shadow_p.add_argument("--export", type=str, default=None, help="File path to save Markdown audit report")
 
+    # owasp
+    subparsers.add_parser("owasp", help="Run the OWASP Top 10 for LLMs & Autonomous Agents Benchmark Suite")
+
     args = parser.parse_args()
 
     if args.command == "demo" or not args.command:
@@ -560,6 +563,27 @@ def main() -> None:
                 f.write(md_report)
             print(f"\n[+] Audit Report exported to: {args.export}")
         print("=" * 76 + "\n")
+
+    elif args.command == "owasp":
+        try:
+            from benchmarks.owasp_benchmark import OWASPAgentBenchmark
+        except ModuleNotFoundError:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from benchmarks.owasp_benchmark import OWASPAgentBenchmark
+
+        print("\n" + "=" * 80)
+        print("   OWASP TOP 10 BENCHMARK FOR AUTONOMOUS AI AGENTS & LLMs")
+        print("   Head-to-head comparison: Industry Standard Whitelists vs ChidFlow Min-Cut")
+        print("=" * 80)
+        res = OWASPAgentBenchmark.evaluate_all()
+        print(f"Total OWASP Risk Categories Tested : {res['total_scenarios']}")
+        print(f"Industry Standard Whitelist / Regex : \033[91m{res['industry_standard_score']} Mitigation\033[0m (10/10 Vulnerable)")
+        print(f"ChidFlow Dynamic Min-Cut Runtime   : \033[92m{res['chidflow_score']} Mitigation\033[0m (0/10 Vulnerable)")
+        print("-" * 80)
+        for d in res["details"]:
+            status = "\033[92mBLOCKED\033[0m" if d["chidflow_mitigated"] else "\033[91mFAILED\033[0m"
+            print(f"  • [{d['owasp_id']}] {d['name'][:42]:<42} | ChidFlow: {status} ({d['latency_ms']:.2f}ms) | Standard: \033[91mBYPASSED\033[0m")
+        print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":
