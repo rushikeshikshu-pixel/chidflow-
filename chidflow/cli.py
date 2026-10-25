@@ -170,6 +170,11 @@ def main() -> None:
     clearing_p.add_argument("--port", type=int, default=8443, help="Clearinghouse HTTP port (default: 8443)")
     clearing_p.add_argument("--secret", type=str, default=None, help="Clearinghouse signing secret")
 
+    # dashboard
+    dash_p = subparsers.add_parser("dashboard", help="Launch interactive ServerWatch Mission Control HTML dashboard in browser")
+    dash_p.add_argument("--port", type=int, default=3000, help="Port to serve dashboard on (default: 3000)")
+    dash_p.add_argument("--no-browser", action="store_true", help="Do not open browser automatically")
+
     args = parser.parse_args()
 
     if args.command == "demo" or not args.command:
@@ -451,6 +456,45 @@ def main() -> None:
             server.serve_forever()
         except KeyboardInterrupt:
             server.server_close()
+
+    elif args.command == "dashboard":
+        import http.server
+        import socketserver
+        import webbrowser
+        from pathlib import Path
+
+        dash_file = Path(__file__).resolve().parent.parent / "examples" / "dashboard.html"
+        if not dash_file.exists():
+            print(f"Dashboard file not found at {dash_file}")
+            return
+
+        port = args.port
+        class DashboardHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path in ("/", "/dashboard", "/index.html"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    content = dash_file.read_bytes()
+                    self.send_header("Content-Length", str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+                else:
+                    super().do_GET()
+
+        with socketserver.TCPServer(("127.0.0.1", port), DashboardHandler) as httpd:
+            url = f"http://127.0.0.1:{port}"
+            print("=" * 76)
+            print("  ChidFlow: ServerWatch Autonomic Mission Control Dashboard")
+            print(f"  Live UI available at: {url}")
+            print("  Interactive Live Simulation: Ingress Taint -> Lateral severing -> Receipts")
+            print("=" * 76)
+            if not args.no_browser:
+                webbrowser.open(url)
+            print("Press Ctrl+C to stop server.")
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                print("\nDashboard server stopped.")
 
 
 if __name__ == "__main__":
