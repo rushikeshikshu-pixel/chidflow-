@@ -1,0 +1,20 @@
+services:
+  clearinghouse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["serve-clearing", "--port", "8443"]
+    ports:
+      - "8443:8443"
+    environment:
+      - CHIDFLOW_SIGNING_SECRET=prod_clearinghouse_master_secret_2026
+    restart: always
+
+  mcp-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["serve", "--port", "8080"]
+    ports:
+      - "8080:8080"
+    restart: always

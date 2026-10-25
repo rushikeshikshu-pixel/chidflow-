@@ -18,6 +18,7 @@ from chidflow.policy import PolicyEngine
 from chidflow.vault import CredentialVault
 from chidflow.proof import ClearinghouseSigner
 from chidflow.proxy import MCPExecutionProxy
+from chidflow.client import ChidFlowClient
 
 __all__ = [
     "SecurityClassification",
@@ -31,4 +32,5 @@ __all__ = [
     "CredentialVault",
     "ClearinghouseSigner",
     "MCPExecutionProxy",
+    "ChidFlowClient",
 ]
