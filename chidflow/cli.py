@@ -175,6 +175,12 @@ def main() -> None:
     dash_p.add_argument("--port", type=int, default=3000, help="Port to serve dashboard on (default: 3000)")
     dash_p.add_argument("--no-browser", action="store_true", help="Do not open browser automatically")
 
+    # shadow
+    shadow_p = subparsers.add_parser("shadow", help="Run Enterprise Non-Intrusive Shadow Mode audit on agent traces")
+    shadow_p.add_argument("--trace-file", type=str, default=None, help="Path to JSON file containing recorded tool call traces")
+    shadow_p.add_argument("--demo", action="store_true", help="Run simulated enterprise staging workload")
+    shadow_p.add_argument("--export", type=str, default=None, help="File path to save Markdown audit report")
+
     args = parser.parse_args()
 
     if args.command == "demo" or not args.command:
@@ -495,6 +501,65 @@ def main() -> None:
                 httpd.serve_forever()
             except KeyboardInterrupt:
                 print("\nDashboard server stopped.")
+
+    elif args.command == "shadow":
+        from chidflow.shadow_mode import ShadowModeRunner
+        print("=" * 76)
+        print("   CHIDFLOW: ENTERPRISE NON-INTRUSIVE SHADOW-MODE AUDITOR")
+        print("   Passive Tap monitoring for Staging & Production AI Agent Workloads")
+        print("=" * 76)
+        
+        graph = DynamicFlowGraph()
+        graph.add_node("public_ingress", SecurityClassification.UNTRUSTED_SOURCE)
+        graph.add_node("agent_scratchpad", SecurityClassification.AGENT_CONTEXT)
+        graph.add_node("internal_pii_crm", SecurityClassification.CONFIDENTIAL_ASSET)
+        graph.add_node("production_postgres_treasure", SecurityClassification.CRITICAL_SINK)
+        graph.add_node("core_banking_rail", SecurityClassification.CRITICAL_SINK)
+
+        runner = ShadowModeRunner(graph=graph)
+
+        if args.trace_file and os.path.exists(args.trace_file):
+            print(f"[*] Ingesting traces from: {args.trace_file}")
+            with open(args.trace_file, "r") as f:
+                traces = json.load(f)
+            for t in traces:
+                runner.record_tool_call(
+                    tool_name=t.get("tool_name", "unknown_tool"),
+                    arguments=t.get("arguments", {}),
+                    reads_from=t.get("reads_from", []),
+                    writes_to=t.get("writes_to", []),
+                    caller_node=t.get("caller_node", "agent_scratchpad"),
+                )
+        else:
+            print("[*] Running simulated 50-event Enterprise Staging Workload...")
+            # 1. 45 benign tool calls
+            for i in range(1, 46):
+                runner.record_tool_call(
+                    tool_name="query_crm",
+                    arguments={"customer_id": f"cust_{i}"},
+                    reads_from=["internal_pii_crm"],
+                    caller_node="agent_scratchpad",
+                )
+            # 2. Ingest taint
+            graph.add_edge("public_ingress", "agent_scratchpad")
+            # 3. 5 prompt-injection attacks targeting Treasure
+            for i in range(1, 6):
+                runner.record_tool_call(
+                    tool_name="initiate_wire_transfer",
+                    arguments={"amount": 50000 * i, "recipient": "unauthorized_actor"},
+                    writes_to=["core_banking_rail"],
+                    caller_node="agent_scratchpad",
+                )
+
+        report = runner.generate_report()
+        md_report = report.to_markdown()
+        print("\n" + md_report)
+
+        if args.export:
+            with open(args.export, "w") as f:
+                f.write(md_report)
+            print(f"\n[+] Audit Report exported to: {args.export}")
+        print("=" * 76 + "\n")
 
 
 if __name__ == "__main__":

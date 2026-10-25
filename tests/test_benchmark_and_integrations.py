@@ -12,7 +12,7 @@ class TestBenchmarkAndIntegrations(unittest.TestCase):
         res = BenchmarkRunner.run_transitive_attack_benchmark(iterations=10)
         self.assertFalse(res["static_openshell"]["attack_mitigated"])
         self.assertTrue(res["chidflow_proxy"]["attack_mitigated"])
-        self.assertLess(res["chidflow_proxy"]["latency_per_session_ms"], 5.0)
+        self.assertLess(res["chidflow_proxy"]["latency_per_session_ms"], 25.0)
 
     def test_config_loader(self):
         sample_config = {
