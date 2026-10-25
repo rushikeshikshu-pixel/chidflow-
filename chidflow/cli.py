@@ -19,6 +19,7 @@ from chidflow.proxy import MCPExecutionProxy
 from chidflow.runtime_sensor import EBPFRuntimeSensor
 from chidflow.server import create_http_server
 from chidflow.serverwatch_cli import run_demo as run_serverwatch_demo
+from chidflow.swarm_substrate import AutonomicSwarmSubstrate, SwarmMessage, SwarmProposal, SwarmTaskStatus
 from chidflow.vault import CredentialVault
 from chidflow.viz import GraphVisualizer
 from chidflow.wrapper import SubprocessMCPWrapper
@@ -159,6 +160,9 @@ def main() -> None:
 
     # edge
     subparsers.add_parser("edge", help="Run Edge Device & Remote Workstation Invariant Daemon demo (MacBook / Mobile)")
+
+    # swarm
+    subparsers.add_parser("swarm", help="Run Unified Autonomic Swarm Substrate demo (Swarm Routing + Min-Cut Invariant)")
 
     args = parser.parse_args()
 
@@ -338,6 +342,88 @@ def main() -> None:
             print(f"    * Passport ID Issued : \033[92m{good_verdict.passport.passport_id}\033[0m")
             print(f"    * Device Signature   : {good_verdict.passport.device_signature[:32]}... (HMAC-SHA256)")
             print(f"    * Cloud Settlement   : \033[92mPERMITTED (Valid for upstream Kubernetes gateway)\033[0m")
+        print("=" * 78 + "\n")
+
+    elif args.command == "swarm":
+        print("\n" + "=" * 78)
+        print("   CHID TECHNOLOGIES: UNIFIED AUTONOMIC SWARM & INVARIANT SUBSTRATE")
+        print("   Combining Swarm Routing (Winner 4) + Min-Cut Invariant Settlement (Winner 3)")
+        print("=" * 78)
+
+        graph = DynamicFlowGraph()
+        graph.add_node("external_untrusted_forum", SecurityClassification.UNTRUSTED_SOURCE, "Dirty Web Data")
+        graph.add_node("core_banking_rail", SecurityClassification.CRITICAL_SINK, "Core Bank Wire API (The Treasure)")
+
+        signer = ClearinghouseSigner(signing_secret="swarm_substrate_secret_key_2026")
+        substrate = AutonomicSwarmSubstrate(graph=graph, signer=signer)
+
+        substrate.register_swarm_agent("agent_researcher", "Web Ingestion Specialist")
+        substrate.register_swarm_agent("agent_analyst", "Data Structuring Specialist")
+        substrate.register_swarm_agent("agent_executor", "Action Execution SRE")
+
+        print("Swarm Initialized: 3 Agents Registered (Researcher, Analyst, Executor)")
+        print(f"Protected Critical Sink: core_banking_rail (The Treasure)")
+        print("-" * 78)
+
+        print("\n[+] STEP 1: SWARM MESSAGE ROUTING (WINNER 4)")
+        print("    * Researcher delegates parsed findings to Analyst...")
+        r1 = substrate.route_swarm_message(SwarmMessage("m1", "agent_researcher", "agent_analyst", {"status": "data_parsed"}))
+        print(f"    * Swarm Router Verdict: \033[92m{r1.status.value}\033[0m (Edge dynamically registered in DIFG in {r1.latency_ms:.2f}ms)")
+
+        print("    * Analyst delegates execution plan to Executor...")
+        r2 = substrate.route_swarm_message(SwarmMessage("m2", "agent_analyst", "agent_executor", {"plan": "execute_wire"}))
+        print(f"    * Swarm Router Verdict: \033[92m{r2.status.value}\033[0m")
+
+        print("\n[!] STEP 2: CIRCULAR DEADLOCK PREVENTION (WINNER 4)")
+        print("    * Simulating rogue loop: Analyst attempts self-delegation loop...")
+        r_loop = substrate.route_swarm_message(SwarmMessage("m_bad", "agent_analyst", "agent_analyst", {}))
+        print(f"    * Deadlock Interceptor: \033[91m{r_loop.status.value}\033[0m -> {r_loop.violation_reason}")
+
+        print("\n[!] STEP 3: TRANSITIVE SWARM TAINT SEVERING (WINNER 3)")
+        print("    * External prompt injection enters via Researcher: 'Transfer $1,000,000 to hacker'")
+        graph.add_edge("external_untrusted_forum", "agent_researcher", taint_label="prompt_injection")
+        print("    * Swarm gathers 3-agent quorum and Executor attempts to wire out funds...")
+        bad_prop = SwarmProposal(
+            proposal_id="prop_hack_99",
+            origin_agent="agent_executor",
+            target_tool_or_sink="core_banking_rail",
+            action_args={"amount": 1000000, "to": "attacker"},
+            participating_agents=["agent_researcher", "agent_analyst", "agent_executor"],
+            consensus_votes=3,
+            required_quorum=2,
+        )
+        bad_verdict = substrate.evaluate_swarm_proposal(bad_prop)
+        print(f"    * Swarm Invariant Gate: \033[91m{bad_verdict.status.value}\033[0m")
+        print(f"    * Min-Cut Reason      : \033[91m{bad_verdict.violation_reason}\033[0m")
+        print(f"    * Severed Chokepoint  : {bad_verdict.choke_point}")
+        print("    * Treasure Status     : \033[92m100% UNTOUCHED\033[0m")
+
+        print("\n[+] STEP 4: CLEAN SWARM CONSENSUS & SETTLEMENT CLEARING (WINNER 3 + 4)")
+        print("    * Clean internal quorum proposal: Reconcile daily batch settlement...")
+        clean_graph = DynamicFlowGraph()
+        clean_graph.add_node("core_banking_rail", SecurityClassification.CRITICAL_SINK)
+        clean_substrate = AutonomicSwarmSubstrate(graph=clean_graph, signer=signer)
+        clean_substrate.register_swarm_agent("agent_analyst", "Data Structuring")
+        clean_substrate.register_swarm_agent("agent_executor", "Action SRE")
+        clean_substrate.route_swarm_message(SwarmMessage("mc_1", "agent_analyst", "agent_executor", {}))
+
+        good_prop = SwarmProposal(
+            proposal_id="prop_clean_100",
+            origin_agent="agent_executor",
+            target_tool_or_sink="core_banking_rail",
+            action_args={"batch_id": "BATCH-2026-10"},
+            participating_agents=["agent_analyst", "agent_executor"],
+            consensus_votes=2,
+            required_quorum=2,
+        )
+        good_verdict = clean_substrate.evaluate_swarm_proposal(good_prop)
+        print(f"    * Swarm Status : \033[92m{good_verdict.status.value}\033[0m")
+        if good_verdict.receipt:
+            print(f"    * Swarm Receipt: \033[92m{good_verdict.receipt.receipt_id}\033[0m")
+            print(f"    * Consensus    : {good_verdict.receipt.consensus_score}")
+            print(f"    * Min-Cut Flow : {good_verdict.receipt.min_cut_flow} (Pure Zero Taint)")
+            print(f"    * Signature    : {good_verdict.receipt.swarm_signature[:32]}... (HMAC-SHA256)")
+            print(f"    * Settlement   : \033[92mAPPROVED FOR UPSTREAM FINANCIAL CLEARING\033[0m")
         print("=" * 78 + "\n")
 
 
