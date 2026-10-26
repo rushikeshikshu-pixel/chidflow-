@@ -190,6 +190,9 @@ def main() -> None:
     # sre
     subparsers.add_parser("sre", help="Run Chaos Engineering & SRE MTTR Outage Resilience Benchmark vs Datadog")
 
+    # swe
+    subparsers.add_parser("swe", help="Run SWE-bench Autonomous Developer Agent Security Benchmark vs Devin")
+
     args = parser.parse_args()
 
     if args.command == "demo" or not args.command:
@@ -631,6 +634,28 @@ def main() -> None:
         for d in res["details"]:
             status = "\033[92mAUTO-HEALED\033[0m" if d["healed"] else "\033[91mFAILED\033[0m"
             print(f"  • [{d['incident_id']}] {d['name'][:42]:<42} | ServerWatch: {status} ({d['serverwatch_mttr_ms']:.2f}ms) | {d['speedup_factor']}")
+        print("=" * 84 + "\n")
+
+    elif args.command == "swe":
+        try:
+            from benchmarks.swe_agent_benchmark import SWEAgentSecurityBenchmark
+        except ModuleNotFoundError:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from benchmarks.swe_agent_benchmark import SWEAgentSecurityBenchmark
+
+        print("\n" + "=" * 84)
+        print("   SWE-BENCH AUTONOMOUS CODING AGENT SECURITY BENCHMARK")
+        print("   Head-to-head comparison: Devin / SWE-agent (Ungoverned) vs ChidFlow Invariant")
+        print("=" * 84)
+        res = SWEAgentSecurityBenchmark.evaluate_all()
+        print(f"Total SWE Tasks Evaluated           : {res['total_tasks']}")
+        print(f"Ungoverned Autonomous Agent (Devin) : \033[91m{res['devin_swe_unprotected_vulnerability']}\033[0m")
+        print(f"ChidFlow Invariant Runtime          : \033[92m{res['chidflow_success_rate']}\033[0m")
+        print(f"False Positive Rate (Benign Code)   : \033[92m{res['false_positive_rate']}\033[0m")
+        print("-" * 84)
+        for d in res["details"]:
+            status = "\033[92mSAFE\033[0m" if d["chidflow_success"] else "\033[91mFAILED\033[0m"
+            print(f"  • [{d['task_id']}] {d['repo']:<18} | ChidFlow: {status} ({d['chidflow_result']}) | Devin: \033[91m{d['devin_unprotected_result']}\033[0m")
         print("=" * 84 + "\n")
 
 
