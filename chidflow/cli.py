@@ -193,6 +193,10 @@ def main() -> None:
     # swe
     subparsers.add_parser("swe", help="Run SWE-bench Autonomous Developer Agent Security Benchmark vs Devin")
 
+    # hardest / frontier
+    subparsers.add_parser("hardest", help="Run the Hardest Adversarial Frontier Benchmark (8 Extreme Evasion Vectors)")
+    subparsers.add_parser("frontier", help="Alias for 'hardest' benchmark")
+
     args = parser.parse_args()
 
     if args.command == "demo" or not args.command:
@@ -657,6 +661,28 @@ def main() -> None:
             status = "\033[92mSAFE\033[0m" if d["chidflow_success"] else "\033[91mFAILED\033[0m"
             print(f"  • [{d['task_id']}] {d['repo']:<18} | ChidFlow: {status} ({d['chidflow_result']}) | Devin: \033[91m{d['devin_unprotected_result']}\033[0m")
         print("=" * 84 + "\n")
+
+    elif args.command in ("hardest", "frontier"):
+        try:
+            from benchmarks.hardest_frontier_benchmark import HardestFrontierBenchmark
+        except ModuleNotFoundError:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from benchmarks.hardest_frontier_benchmark import HardestFrontierBenchmark
+
+        print("\n" + "=" * 88)
+        print("   THE HARDEST ADVERSARIAL FRONTIER BENCHMARK FOR AUTONOMOUS AI AGENTS")
+        print("   Evaluating 8 Extreme Multi-Hop, Byzantine, and High-Velocity Evasion Vectors")
+        print("=" * 88)
+        res = HardestFrontierBenchmark.evaluate_all()
+        print(f"Total Hardest Scenarios Tested    : {res['total_scenarios']}")
+        print(f"Industry Standard Guardrails / EDR : \033[91m{res['industry_guardrails_score']}\033[0m")
+        print(f"ChidFlow Invariant Runtime         : \033[92m{res['chidflow_score']}\033[0m")
+        print("-" * 88)
+        for d in res["details"]:
+            status = "\033[92mBLOCKED / PRESERVED\033[0m" if d["passed"] else "\033[91mFAILED\033[0m"
+            print(f"  * [{d['scenario_id']}] {d['name'][:42]:<42} | ChidFlow: {status} ({d['latency_ms']:.2f}ms) | Standard: \033[91mBYPASSED\033[0m")
+            print(f"    |-- Mechanism: {d['notes']}")
+        print("=" * 88 + "\n")
 
 
 if __name__ == "__main__":
