@@ -19,6 +19,14 @@ from chidflow.vault import CredentialVault
 from chidflow.proof import ClearinghouseSigner
 from chidflow.proxy import MCPExecutionProxy
 from chidflow.client import ChidFlowClient
+from chidflow.horizon import (
+    EBPFInvariantProbe,
+    KernelSyscallEvent,
+    KernelProbeVerdict,
+    ZKInvariantProver,
+    ZKInvariantProof,
+    CosmologicalEntropyRegulator,
+)
 
 __all__ = [
     "SecurityClassification",
@@ -33,4 +41,10 @@ __all__ = [
     "ClearinghouseSigner",
     "MCPExecutionProxy",
     "ChidFlowClient",
+    "EBPFInvariantProbe",
+    "KernelSyscallEvent",
+    "KernelProbeVerdict",
+    "ZKInvariantProver",
+    "ZKInvariantProof",
+    "CosmologicalEntropyRegulator",
 ]
