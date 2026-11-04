@@ -21,6 +21,31 @@ ChidFlow (Dynamic Min-Cut Graph Proxy):
 
 ---
 
+## Threat model and limitations
+
+### What ChidFlow defends against
+Indirect prompt injection that leads to unauthorized actions: untrusted content (web pages, tickets, emails, tool outputs, persisted memory) influences an agent holding legitimate credentials, which then calls a tool that writes to a sensitive destination (payments, databases, outbound webhooks, secrets).
+
+ChidFlow does not detect malicious text. Before every tool call it checks one invariant over a dynamic information-flow graph: no path may exist from an UNTRUSTED_SOURCE node to a CRITICAL_SINK node (Φt = 0). Reachability is computed with an Edmonds-Karp min-cut; violating calls are rejected (JSON-RPC error -32001). Each decision can be recorded as an HMAC-SHA256 receipt (RFC-001 VAEP).
+
+### Assumptions
+- Every tool call goes through ChidFlow (MCP stdio proxy, HTTP JSON-RPC gateway, or the LangGraph ChidFlowToolNode). Calls that bypass it are not seen.
+- Tools are declared accurately (reads_from / writes_to and node classifications in policy.json). Mislabeled tools or undeclared side effects break the guarantee.
+- The proxy, policy file, and HMAC key are trusted and outside the agent's control.
+- Granularity is per tool and per node, not per value; agent context is a single AGENT_CONTEXT node.
+
+### Known limitations
+- Over-tainting: reading any untrusted source can block every later sink call in the session, even unrelated ones.
+- No declassification yet: there is no built-in way to mark tainted data as reviewed or safe.
+- No value-level tracking, unlike capability-based designs such as CaMeL.
+- Out of scope: harm that never reaches a declared sink, side effects hidden inside a single tool, model attacks, and compromise of the host.
+- The <0.2 ms figure is measured on small example graphs; larger graphs are not yet profiled.
+
+### Evaluation status
+All current results come from self-authored synthetic suites in benchmarks/ (TPIC, an OWASP-category-mapped suite, MITRE ATLAS, and others). They are regression checks, not an independent benchmark, and do not demonstrate OWASP coverage. ChidFlow has not yet been evaluated on external benchmarks such as AgentDojo, and utility under defense has not been measured. External red-teaming is welcome.
+
+---
+
 ## 🚀 Quick Commands
 
 ### 1. Interactive Visual Demo
