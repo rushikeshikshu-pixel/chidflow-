@@ -28,7 +28,7 @@ class TestTPICAndBridges(unittest.TestCase):
         policy.register_tool("scrape_external", reads_from=["public_web"])
         policy.register_tool("stripe_charge", writes_to=["stripe_sink"])
 
-        vault = CredentialVault({"STRIPE_KEY": "sk_live_secret"})
+        vault = CredentialVault({"STRIPE_KEY": "stripe-test-placeholder"})
         bridge = OpenShellSupervisorBridge(policy_engine=policy, vault=vault)
 
         # 1. Benign tool call from OpenShell sandbox

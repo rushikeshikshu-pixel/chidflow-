@@ -1,0 +1,10 @@
+title = "chidflow"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Skip VCS metadata. History is not rewritten; scan the working tree."
+paths = [
+  '''(?:^|/)\.git(?:/|$)''',
+]

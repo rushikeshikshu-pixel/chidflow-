@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from chidflow.models import AuditReceipt
 from chidflow.proof import ClearinghouseSigner
+from chidflow.signing import resolve_signing_secret
 
 logger = logging.getLogger("chidflow.clearinghouse.service")
 
@@ -21,7 +22,7 @@ class ClearinghouseRequestHandler(BaseHTTPRequestHandler):
     before financial rails or production databases settle autonomous transactions.
     """
 
-    signer: ClearinghouseSigner = ClearinghouseSigner(signing_secret="clearinghouse_master_production_secret_2026")
+    signer: Optional[ClearinghouseSigner] = None
 
     def _send_json_response(self, status_code: int, data: Dict[str, Any]) -> None:
         payload = json.dumps(data, indent=2).encode("utf-8")
@@ -32,7 +33,18 @@ class ClearinghouseRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _reject_if_unconfigured(self) -> bool:
+        if self.signer is not None:
+            return False
+        self._send_json_response(500, {
+            "error": "SIGNING_SECRET_NOT_CONFIGURED",
+            "detail": "CHIDFLOW_SIGNING_SECRET is not set.",
+        })
+        return True
+
     def do_GET(self) -> None:
+        if self._reject_if_unconfigured():
+            return
         parsed = urlparse(self.path)
         if parsed.path == "/v1/clearing/roots":
             # Return trusted root public keys for bank verification
@@ -60,6 +72,8 @@ class ClearinghouseRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(404, {"error": "NOT_FOUND", "path": parsed.path})
 
     def do_POST(self) -> None:
+        if self._reject_if_unconfigured():
+            return
         parsed = urlparse(self.path)
         content_len = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_len).decode("utf-8")
@@ -131,8 +145,14 @@ class ClearinghouseRequestHandler(BaseHTTPRequestHandler):
 
 
 def start_clearinghouse_server(port: int = 8443, signer: Optional[ClearinghouseSigner] = None) -> HTTPServer:
-    """Instantiate and start the Clearinghouse Verification HTTP server."""
-    if signer:
-        ClearinghouseRequestHandler.signer = signer
+    """Instantiate the Clearinghouse Verification HTTP server.
+
+    A signer is required. When ``signer`` is omitted, the key is read from
+    ``CHIDFLOW_SIGNING_SECRET`` and this function raises
+    ``MissingSigningSecretError`` if that variable is missing.
+    """
+    if signer is None:
+        signer = ClearinghouseSigner(signing_secret=resolve_signing_secret())
+    ClearinghouseRequestHandler.signer = signer
     server = HTTPServer(("0.0.0.0", port), ClearinghouseRequestHandler)
     return server

@@ -10,6 +10,7 @@ from chidflow.graph import DynamicFlowGraph
 from chidflow.models import AuditReceipt, SecurityClassification, ToolCallRequest, ToolCallVerdict
 from chidflow.policy import PolicyEngine
 from chidflow.proof import ClearinghouseSigner
+from chidflow.signing import optional_signing_secret
 
 logger = logging.getLogger("chidflow.client")
 
@@ -34,11 +35,12 @@ class ChidFlowClient:
         Initialize ChidFlow Client.
         
         :param endpoint: Remote Clearinghouse Gateway URL (e.g. 'http://localhost:8443')
-        :param signing_secret: Secret key for verifying or generating cryptographic receipts
+        :param signing_secret: HMAC key for receipts. Falls back to CHIDFLOW_SIGNING_SECRET.
+            If neither is set, this process uses an ephemeral key.
         :param policy_engine: Optional local PolicyEngine for in-process sub-millisecond evaluation
         """
         self.endpoint = endpoint.rstrip("/") if endpoint else None
-        self.signer = ClearinghouseSigner(signing_secret or "chidflow-client-default-secret")
+        self.signer = ClearinghouseSigner(optional_signing_secret(signing_secret))
         
         if policy_engine:
             self.policy_engine = policy_engine

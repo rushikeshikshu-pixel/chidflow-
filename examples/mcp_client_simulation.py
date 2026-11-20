@@ -27,7 +27,7 @@ async def main():
     graph.add_node("corporate_drive", SecurityClassification.CONFIDENTIAL_ASSET, "Internal Drive")
     graph.add_node("stripe_charge_api", SecurityClassification.CRITICAL_SINK, "Stripe Charge API")
 
-    vault = CredentialVault({"STRIPE_SECRET_KEY": "sk_live_99214488220011"})
+    vault = CredentialVault({"STRIPE_SECRET_KEY": "stripe-test-placeholder"})
     signer = ClearinghouseSigner()
     policy = PolicyEngine(graph=graph, signer=signer)
 

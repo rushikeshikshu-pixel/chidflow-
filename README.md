@@ -46,6 +46,17 @@ All current results come from self-authored synthetic suites in benchmarks/ (TPI
 
 ---
 
+## Signing secret
+
+`CHIDFLOW_SIGNING_SECRET` is the HMAC key for audit receipts. Copy `.env.example` to `.env` and set it there. Do not commit `.env`.
+
+- `chid demo` and the other local demo commands (`autopilot`, `explorer`, `cybersec`, `swarm`, `shadow`) run without the variable. They sign with the public value `demo-only-insecure-signing-secret` and print a warning. The `edge` demo uses `demo-only-insecure-device-secret` the same way. Do not deploy either value.
+- `chid serve-clearing` and `chid verify` exit if the variable is unset and `--secret` was not passed.
+- `examples/policy.json` sets `signing_secret` to `$ENV:CHIDFLOW_SIGNING_SECRET` and reads `STRIPE_API_KEY` for the example credential. `chid proxy` and `chid serve` with that file exit until `CHIDFLOW_SIGNING_SECRET` is set.
+- `docker compose` interpolates `${CHIDFLOW_SIGNING_SECRET}` and exits if the variable is missing or empty.
+
+Secret scanning and the test suite run in `.github/workflows/ci.yml`. A gitleaks pre-commit hook is in `.pre-commit-config.yaml`.
+
 ## 🚀 Quick Commands
 
 ### 1. Interactive Visual Demo
@@ -78,14 +89,16 @@ python -m chidflow.cli benchmark --iterations 1000
 Compares attack mitigation accuracy and latency against static whitelist engines.
 
 ### 3. Wrap Any Upstream MCP Server
-Run any existing MCP server through ChidFlow over `stdio`:
+Run any existing MCP server through ChidFlow over `stdio`. `examples/policy.json` requires `CHIDFLOW_SIGNING_SECRET`:
 ```bash
+export CHIDFLOW_SIGNING_SECRET="<hmac-key>"
 python -m chidflow.cli proxy --wrap "python my_mcp_tools.py" --config examples/policy.json
 ```
 
 ### 4. Run HTTP JSON-RPC Gateway
 Start a local or cloud HTTP gateway on port 8080:
 ```bash
+export CHIDFLOW_SIGNING_SECRET="<hmac-key>"
 python -m chidflow.cli serve --port 8080 --config examples/policy.json
 ```
 
@@ -110,8 +123,9 @@ chid dashboard
 ```
 
 ### 8. Run Public Clearinghouse Verification Gateway (RFC-001 VAEP)
-Start the HTTP settlement verification gateway for upstream banks and APIs:
+Start the HTTP settlement verification gateway. The process exits if `CHIDFLOW_SIGNING_SECRET` is unset and `--secret` was not passed:
 ```bash
+export CHIDFLOW_SIGNING_SECRET="<hmac-key>"
 chid serve-clearing --port 8443
 ```
 
@@ -188,9 +202,9 @@ $$\mathcal{H}_{\text{state}} = \text{SHA256}(\text{GraphTopology})$$
 $$\mathcal{H}_{\text{call}} = \text{SHA256}(\text{Seq} \parallel \text{Timestamp} \parallel \text{Tool} \parallel \text{ArgsHash})$$
 $$\mathcal{R}_t = \text{Sign}_{K_{\text{proxy}}}(\mathcal{H}_{\text{state}} \parallel \mathcal{H}_{\text{call}})$$
 
-Downstream financial rails, compliance officers, and auditors can verify receipts via CLI:
+Downstream financial rails, compliance officers, and auditors can verify receipts via CLI. `--secret` overrides `CHIDFLOW_SIGNING_SECRET`. One of the two is required:
 ```bash
-python -m chidflow.cli verify receipt.json --secret <YOUR_KEY>
+python -m chidflow.cli verify receipt.json --secret "$CHIDFLOW_SIGNING_SECRET"
 ```
 
 ---

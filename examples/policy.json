@@ -38,5 +38,5 @@
   "credentials": {
     "STRIPE_API_KEY": "$ENV:STRIPE_API_KEY"
   },
-  "signing_secret": "prod-clearinghouse-secret-key-32bytes"
+  "signing_secret": "$ENV:CHIDFLOW_SIGNING_SECRET"
 }

@@ -8,6 +8,7 @@ from chidflow.graph import DynamicFlowGraph
 from chidflow.models import SecurityClassification
 from chidflow.policy import PolicyEngine
 from chidflow.proof import ClearinghouseSigner
+from chidflow.signing import MissingSigningSecretError
 from chidflow.vault import CredentialVault
 
 
@@ -51,6 +52,7 @@ class PolicyConfigLoader:
 
         # 4. Setup Signer & Policy Engine
         secret = signing_secret or data.get("signing_secret")
+        secret = _resolve_policy_signing_secret(secret)
         signer = ClearinghouseSigner(secret)
         policy_engine = PolicyEngine(graph=graph, signer=signer)
 
@@ -83,3 +85,27 @@ class PolicyConfigLoader:
                 data = json.loads(content)
 
         return cls.load_from_dict(data, signing_secret)
+
+
+def _resolve_policy_signing_secret(secret: Optional[str]) -> Optional[str]:
+    """Resolve a policy ``signing_secret``.
+
+    ``None`` keeps the ephemeral signer used by in-process callers.
+    ``$ENV:NAME`` must be set. A blank string is rejected.
+    """
+    if secret is None:
+        return None
+    if secret.startswith("$ENV:"):
+        env_key = secret[5:]
+        resolved = os.environ.get(env_key, "").strip()
+        if not resolved:
+            raise MissingSigningSecretError(
+                f"Policy signing_secret is {secret}, but {env_key} is not set. "
+                f"Export {env_key} before loading this policy. See .env.example."
+            )
+        return resolved
+    if not secret.strip():
+        raise MissingSigningSecretError(
+            "Policy signing_secret is blank. Refusing to sign with an empty key."
+        )
+    return secret
