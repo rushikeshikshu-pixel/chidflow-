@@ -35,7 +35,7 @@ def test_cluster():
     graph.add_edge("canary_worker", "core_database")
     graph.add_edge("billing_api", "payment_gateway")
 
-    signer = ClearinghouseSigner(signing_secret="test_secret_key_1234567890")
+    signer = ClearinghouseSigner(signing_secret="test-only-autopilot-signing-secret")
     autopilot = ServerWatchAutopilot(graph=graph, signer=signer)
     sensor = EBPFRuntimeSensor(signer=signer)
     sensor.register_protected_resource("core_database:5432")

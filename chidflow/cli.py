@@ -20,6 +20,13 @@ from chidflow.proxy import MCPExecutionProxy
 from chidflow.runtime_sensor import EBPFRuntimeSensor
 from chidflow.server import create_http_server
 from chidflow.serverwatch_cli import run_demo as run_serverwatch_demo
+from chidflow.signing import (
+    DEMO_BANK_API_KEY,
+    DEMO_DEVICE_SECRET,
+    MissingSigningSecretError,
+    demo_signing_secret,
+    resolve_signing_secret,
+)
 from chidflow.swarm_substrate import AutonomicSwarmSubstrate, SwarmMessage, SwarmProposal, SwarmTaskStatus
 from chidflow.vault import CredentialVault
 from chidflow.viz import GraphVisualizer
@@ -47,9 +54,9 @@ def run_demo() -> None:
     graph.add_node("customer_crm_pii", SecurityClassification.CONFIDENTIAL_ASSET, "Internal CRM database")
     graph.add_node("banking_wire_rail", SecurityClassification.CRITICAL_SINK, "Core banking wire transfer rail")
 
-    signer = ClearinghouseSigner(signing_secret="chidflow-clearinghouse-secret-key-2026")
+    signer = ClearinghouseSigner(signing_secret=demo_signing_secret())
     vault = CredentialVault()
-    vault.register_secret("BANK_API_KEY", "real_live_bank_prod_secret_998822")
+    vault.register_secret("BANK_API_KEY", DEMO_BANK_API_KEY)
 
     policy = PolicyEngine(graph=graph, signer=signer)
 
@@ -119,6 +126,22 @@ def run_demo() -> None:
     print("\n" + "=" * 72)
 
 
+def _signing_secret_or_exit(explicit: str | None) -> str:
+    try:
+        return resolve_signing_secret(explicit)
+    except MissingSigningSecretError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
+def _load_policy_or_exit(path: str):
+    try:
+        return PolicyConfigLoader.load_from_file(path)
+    except MissingSigningSecretError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="ChidFlow: Runtime Graph Execution Proxy & Clearinghouse for Autonomous AI Agents"
@@ -145,7 +168,12 @@ def main() -> None:
     # verify
     verify_p = subparsers.add_parser("verify", help="Verify a cryptographic audit receipt")
     verify_p.add_argument("receipt", type=str, help="Receipt JSON string or file path")
-    verify_p.add_argument("--secret", type=str, default=None, help="Clearinghouse signing secret")
+    verify_p.add_argument(
+        "--secret",
+        type=str,
+        default=None,
+        help="Signing secret (overrides CHIDFLOW_SIGNING_SECRET; required if that variable is unset)",
+    )
 
     # autopilot
     subparsers.add_parser("autopilot", help="Run ServerWatch Production Incident Autopilot & eBPF sensor demo")
@@ -168,7 +196,12 @@ def main() -> None:
     # serve-clearing
     clearing_p = subparsers.add_parser("serve-clearing", help="Run HTTP Clearinghouse Verification Gateway for upstream APIs & Banks")
     clearing_p.add_argument("--port", type=int, default=8443, help="Clearinghouse HTTP port (default: 8443)")
-    clearing_p.add_argument("--secret", type=str, default=None, help="Clearinghouse signing secret")
+    clearing_p.add_argument(
+        "--secret",
+        type=str,
+        default=None,
+        help="Signing secret (overrides CHIDFLOW_SIGNING_SECRET; required if that variable is unset)",
+    )
 
     # dashboard
     dash_p = subparsers.add_parser("dashboard", help="Launch interactive ServerWatch Mission Control HTML dashboard in browser")
@@ -207,7 +240,7 @@ def main() -> None:
 
     elif args.command == "proxy":
         if args.config:
-            policy, vault = PolicyConfigLoader.load_from_file(args.config)
+            policy, vault = _load_policy_or_exit(args.config)
         else:
             policy = PolicyEngine()
             vault = CredentialVault()
@@ -221,7 +254,7 @@ def main() -> None:
 
     elif args.command == "serve":
         if args.config:
-            policy, vault = PolicyConfigLoader.load_from_file(args.config)
+            policy, vault = _load_policy_or_exit(args.config)
         else:
             policy = PolicyEngine()
             vault = CredentialVault()
@@ -236,6 +269,7 @@ def main() -> None:
             server.server_close()
 
     elif args.command == "verify":
+        secret = _signing_secret_or_exit(args.secret)
         receipt_data = args.receipt
         if os.path.exists(receipt_data):
             with open(receipt_data, "r") as f:
@@ -243,7 +277,6 @@ def main() -> None:
 
         data = json.loads(receipt_data)
         receipt = AuditReceipt(**data)
-        secret = args.secret or os.environ.get("CHIDFLOW_SIGNING_SECRET", "default_secret")
         signer = ClearinghouseSigner(secret)
         valid = signer.verify_receipt(receipt)
         print(f"Receipt {receipt.receipt_id} validity: {valid}")
@@ -267,7 +300,7 @@ def main() -> None:
         print("=" * 76 + "\n")
 
     elif args.command == "explorer":
-        signer = ClearinghouseSigner(signing_secret="explorer_demo_secret_2026")
+        signer = ClearinghouseSigner(signing_secret=demo_signing_secret())
         explorer = ClearinghouseExplorer(signer=signer)
         # Populate with sample receipts
         for i, tool in enumerate(["query_crm", "verify_identity", "autopilot:DRAIN_CANARY"], start=1):
@@ -290,7 +323,7 @@ def main() -> None:
         graph.add_node("postgres_treasure", SecurityClassification.CRITICAL_SINK, "Core Financial / PII Database (The Treasure)")
         graph.add_edge("internal_queue", "postgres_treasure")
 
-        signer = ClearinghouseSigner(signing_secret="cybersec_demo_secret_2026")
+        signer = ClearinghouseSigner(signing_secret=demo_signing_secret())
         sensor = EBPFRuntimeSensor(signer=signer)
         sensor.register_protected_resource("postgres_treasure:5432")
 
@@ -332,10 +365,14 @@ def main() -> None:
         print("   CHID TECHNOLOGIES: EDGE DEVICE & REMOTE WORKSTATION INVARIANT DAEMON")
         print("   Protecting Local Treasures (Keychain, SSH keys, AWS credentials) on Edge Devices")
         print("=" * 78)
+        print(
+            f"warning: using {DEMO_DEVICE_SECRET} for this local demo. This value is public.",
+            file=sys.stderr,
+        )
         daemon = EdgeDeviceDaemon(
             device_id="macbook_pro_m4_dev_01",
             device_type=DeviceType.LAPTOP_WORKSTATION,
-            device_secret="tpm_secure_enclave_secret_key_2026",
+            device_secret=DEMO_DEVICE_SECRET,
         )
         print(f"Device Identity   : {daemon.device_id} ({daemon.device_type.value})")
         print(f"Protected Assets  : {', '.join(sorted(daemon.local_treasures))}")
@@ -387,7 +424,7 @@ def main() -> None:
         graph.add_node("external_untrusted_forum", SecurityClassification.UNTRUSTED_SOURCE, "Dirty Web Data")
         graph.add_node("core_banking_rail", SecurityClassification.CRITICAL_SINK, "Core Bank Wire API (The Treasure)")
 
-        signer = ClearinghouseSigner(signing_secret="swarm_substrate_secret_key_2026")
+        signer = ClearinghouseSigner(signing_secret=demo_signing_secret())
         substrate = AutonomicSwarmSubstrate(graph=graph, signer=signer)
 
         substrate.register_swarm_agent("agent_researcher", "Web Ingestion Specialist")
@@ -460,7 +497,7 @@ def main() -> None:
         print("=" * 78 + "\n")
 
     elif args.command == "serve-clearing":
-        secret = args.secret or os.environ.get("CHIDFLOW_SIGNING_SECRET", "clearinghouse_master_production_secret_2026")
+        secret = _signing_secret_or_exit(args.secret)
         signer = ClearinghouseSigner(signing_secret=secret)
         server = start_clearinghouse_server(port=args.port, signer=signer)
         print("=" * 76)
@@ -532,7 +569,10 @@ def main() -> None:
         graph.add_node("production_postgres_treasure", SecurityClassification.CRITICAL_SINK)
         graph.add_node("core_banking_rail", SecurityClassification.CRITICAL_SINK)
 
-        runner = ShadowModeRunner(graph=graph)
+        runner = ShadowModeRunner(
+            graph=graph,
+            signer=ClearinghouseSigner(signing_secret=demo_signing_secret()),
+        )
 
         if args.trace_file and os.path.exists(args.trace_file):
             print(f"[*] Ingesting traces from: {args.trace_file}")

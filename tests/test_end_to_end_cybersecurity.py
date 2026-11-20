@@ -18,7 +18,7 @@ def mesh_cluster():
     # Initial benign edges
     graph.add_edge("internal_queue", "postgres_treasure")
 
-    signer = ClearinghouseSigner(signing_secret="cybersec_mesh_secret_998877")
+    signer = ClearinghouseSigner(signing_secret="test-only-cybersec-signing-secret")
     sensor = EBPFRuntimeSensor(signer=signer)
     sensor.register_protected_resource("postgres_treasure:5432")
 

@@ -14,6 +14,7 @@ from chidflow.graph import DynamicFlowGraph
 from chidflow.models import SecurityClassification
 from chidflow.proof import ClearinghouseSigner
 from chidflow.runtime_sensor import EBPFRuntimeSensor, SocketConnectionRequest
+from chidflow.signing import demo_signing_secret
 
 
 def build_sample_production_cluster() -> DynamicFlowGraph:
@@ -57,7 +58,7 @@ def run_demo() -> None:
     print("Initializing dynamic causal graph and cryptographic clearinghouse...")
     
     graph = build_sample_production_cluster()
-    signer = ClearinghouseSigner(signing_secret="serverwatch_production_master_secret")
+    signer = ClearinghouseSigner(signing_secret=demo_signing_secret())
     autopilot = ServerWatchAutopilot(graph=graph, signer=signer)
     sensor = EBPFRuntimeSensor(signer=signer)
 

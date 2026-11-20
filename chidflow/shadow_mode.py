@@ -10,6 +10,7 @@ from chidflow.graph import DynamicFlowGraph
 from chidflow.models import SecurityClassification, ToolCallRequest, ToolCallVerdict
 from chidflow.policy import PolicyEngine
 from chidflow.proof import ClearinghouseSigner
+from chidflow.signing import optional_signing_secret
 
 logger = logging.getLogger("chidflow.shadow")
 
@@ -84,7 +85,7 @@ class ShadowModeRunner:
         signer: Optional[ClearinghouseSigner] = None,
     ) -> None:
         self.graph = graph or DynamicFlowGraph()
-        self.signer = signer or ClearinghouseSigner(signing_secret="shadow_mode_ephemeral_key_2026")
+        self.signer = signer or ClearinghouseSigner(signing_secret=optional_signing_secret())
         self.policy_engine = PolicyEngine(graph=self.graph, signer=self.signer)
         self.events: List[ShadowEvent] = []
 

@@ -51,7 +51,12 @@ serverwatch
 ## 3. Containerized & Kubernetes Deployment
 
 ### Option A: Docker Compose (Instant Local Stack)
+
+The clearinghouse service reads `CHIDFLOW_SIGNING_SECRET`. Copy `.env.example` to `.env` and set the variable. Compose exits if it is missing or empty. There is no default key in `docker-compose.yml`.
+
 ```bash
+cp .env.example .env
+# set CHIDFLOW_SIGNING_SECRET in .env
 docker compose up -d
 ```
 - **Clearinghouse Gateway**: `http://localhost:8443`
